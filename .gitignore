@@ -23,3 +23,7 @@
 *.jpg
 
 build/osx/rget.xcodeproj/project.xcworkspace/xcuserdata/rrabien.xcuserdatad/UserInterfaceState.xcuserstate
+
+*.png
+
+*.gif
