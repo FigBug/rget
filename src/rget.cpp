@@ -64,14 +64,15 @@ string getDataDir()
 	return string(tmp.begin(), tmp.end());
 #endif
 #ifdef __APPLE__
-	char path[1000];
+	char path[1000] = { 0 };
 
 	strcpy(path, "~/.rget");
 
 	wordexp_t exp_result;
 	wordexp(path, &exp_result, 0);
-	strcpy(path, exp_result.we_wordv[0]);
-	wordfree(&exp_result); 
+    if (exp_result.we_wordc > 0)
+        strcpy(path, exp_result.we_wordv[0]);
+	wordfree(&exp_result);
 
 	mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 
@@ -293,6 +294,42 @@ bool saveImgurUrl(const string& subreddit, const Options& options, string url)
 	}
 	else
 	{
+        string key = strrchr(url.c_str(), '/') + 1;
+        
+        string jsonUrl = "https://api.imgur.com/3/image/" + key;
+		
+		string page = fetchImgurUrl(jsonUrl);
+		
+		if (page.size() > 0)
+		{
+			// convert to json
+			block_allocator allocator(1 << 10);
+			json_value* root = toJson(page, allocator);
+			if (root)
+			{
+                for (json_value* it = root->first_child; it; it = it->next_sibling)
+				{
+					if (!strcmp(it->name, "data") && it->type == JSON_OBJECT)
+					{
+                        json_value* data = it;
+                        
+                        for (json_value* it = data->first_child; it; it = it->next_sibling)
+                        {
+                            if (!strcmp(it->name, "link"))
+                            {
+                                string link = it->string_value;
+                                
+                                if (link.size() > 0)
+                                {
+                                    saveImage(subreddit, options, link);
+                                }
+                            }
+                        }
+                    }
+                }
+
+            }
+        }
 	}
 	return true;
 }

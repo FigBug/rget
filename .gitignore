@@ -21,3 +21,5 @@
 *.app
 
 *.jpg
+
+build/osx/rget.xcodeproj/project.xcworkspace/xcuserdata/rrabien.xcuserdatad/UserInterfaceState.xcuserstate
