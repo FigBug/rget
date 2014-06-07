@@ -3,7 +3,7 @@
 #ifdef __APPLE__
 static size_t outputCallback(void *ptr, size_t size, size_t nmemb, void *data)
 {
-	int sz = size * nmemb;
+	int sz = int(size * nmemb);
 
 	std::string* output = (std::string*)data;
 	output->append(string((char*)ptr, sz));
@@ -11,12 +11,40 @@ static size_t outputCallback(void *ptr, size_t size, size_t nmemb, void *data)
 	return sz;
 }
 
-string fetchUrl(string server, string path)
+string fetchImgurUrl(string url)
+{
+	CURL *curl;
+	CURLcode res;
+	
+    struct curl_slist *headers     = NULL;
+    
+	std::string output;
+    
+    curl = curl_easy_init();
+    
+    headers = curl_slist_append(headers, "Authorization: Client-ID 51f229880e3ea84");
+    
+	if (curl)
+	{
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+		curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, outputCallback);
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*)&output);
+		curl_easy_setopt(curl, CURLOPT_USERAGENT, "penis-browser/1.1");
+		
+		res = curl_easy_perform(curl);
+		
+		curl_easy_cleanup(curl);		
+	}
+    
+	return output;
+}
+
+string fetchUrl(string url)
 {
 	CURL *curl;
 	CURLcode res;
 
-	string url = string("http://") + server + path;
 	string output;
 
 	curl = curl_easy_init();
@@ -35,6 +63,12 @@ string fetchUrl(string server, string path)
 	}
 
 	return output;
+}
+
+string fetchUrl(string server, string path)
+{
+	string url = string("http://") + server + path;
+	return fetchUrl(url);
 }
 #endif
 

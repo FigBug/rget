@@ -55,7 +55,7 @@ string getDataDir()
 	wchar_t path[MAX_PATH];
 	SHGetFolderPath(NULL, CSIDL_APPDATA, NULL, SHGFP_TYPE_CURRENT, path);
 
-	wcscat(path, L"\\r");
+	wcscat(path, L"\\rget");
 
 	CreateDirectory(path, NULL);
 
@@ -66,7 +66,7 @@ string getDataDir()
 #ifdef __APPLE__
 	char path[1000];
 
-	strcpy(path, "~/.r");
+	strcpy(path, "~/.rget");
 
 	wordexp_t exp_result;
 	wordexp(path, &exp_result, 0);
@@ -77,6 +77,50 @@ string getDataDir()
 
 	return path;
 #endif
+}
+
+int doMkdir(const char* path, mode_t mode)
+{
+    struct stat st;
+    int  status = 0;
+
+    if (stat(path, &st) != 0)
+    {
+        if (mkdir(path, mode) != 0 && errno != EEXIST)
+            status = -1;
+    }
+    else if (!S_ISDIR(st.st_mode))
+    {
+        errno = ENOTDIR;
+        status = -1;
+    }
+
+    return status;
+}
+
+int mkpath(const char* path, mode_t mode)
+{
+    char* pp;
+    char* sp;
+    int status;
+    char* copypath = strdup(path);
+
+    status = 0;
+    pp = copypath;
+    while (status == 0 && (sp = strchr(pp, '/')) != 0)
+    {
+        if (sp != pp)
+        {
+            *sp = '\0';
+            status = doMkdir(copypath, mode);
+            *sp = '/';
+        }
+        pp = sp + 1;
+    }
+    if (status == 0)
+        status = doMkdir(path, mode);
+    free(copypath);
+    return status;
 }
 
 void loadHistory(string subreddit, vector<HistoryItem>& history)
@@ -153,9 +197,6 @@ bool hasEnding(std::string const &fullString, std::string const &ending)
 
 bool isImageUrl(string url)
 {
-	if (url.find("imgur.com") == string::npos)
-		return false;
-		
 	std::transform(url.begin(), url.end(), url.begin(), ::tolower);
 	
 	if (hasEnding(url, ".gif")) return true;	
@@ -167,7 +208,96 @@ bool isImageUrl(string url)
 	return false;
 }
 
-void handleStory(const Options& options, vector<HistoryItem>& history, json_value* story)
+bool isImgurUrl(string url)
+{
+	if (url.find("imgur.com") == string::npos)
+		return false;
+		
+	return true;
+}		
+
+bool saveImage(const string& subreddit, const Options& options, string url, string prefix = "")
+{
+	string imgData = fetchUrl(url);
+	if (imgData.empty())
+		return false;
+	
+	string dir;
+	if (options.createSubdir)
+		dir = subreddit + DIR_SEP;
+	if (options.output.size() > 0)
+		dir = options.output + DIR_SEP + dir;
+		
+	string fname = prefix + string(strrchr(url.c_str(), '/') + 1);
+	if (dir.size() > 0)
+	{
+		mkpath(dir.c_str(), 0755);
+		fname = dir + fname;
+	}	
+	
+	FILE* fp = fopen(fname.c_str(), "wb");
+	if (fp)
+	{
+		fwrite(imgData.data(), imgData.size(), 1, fp);
+		fclose(fp);
+	}
+	return true;
+}
+
+bool saveImgurUrl(const string& subreddit, const Options& options, string url)
+{
+	if (strstr(url.c_str(), "/a/"))
+	{
+		string key = strstr(url.c_str(), "/a/") + 3;
+		
+		string jsonUrl = "https://api.imgur.com/3/album/" + key + "/images";
+		
+		string page = fetchImgurUrl(jsonUrl);
+		
+		int idx = 0;
+		
+		if (page.size() > 0)
+		{
+			// convert to json
+			block_allocator allocator(1 << 10);
+			json_value* root = toJson(page, allocator);
+			if (root)
+			{
+				for (json_value* it = root->first_child; it; it = it->next_sibling)
+				{
+					if (!strcmp(it->name, "data") && it->type == JSON_ARRAY)
+					{
+						for (json_value* image = it->first_child; image; image = image->next_sibling)
+						{
+							idx++;
+							for (json_value* it = image->first_child; it; it = it->next_sibling)
+							{
+								if (!strcmp(it->name, "link")) 
+								{
+									string link = it->string_value;
+									
+									if (link.size() > 0)
+									{
+										char buffer[1024];
+										sprintf(buffer, "%s-%d-", key.c_str(), idx);
+									
+										saveImage(subreddit, options, link, buffer);
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	else
+	{
+	}
+	return true;
+}
+
+void handleStory(const string& subreddit, const Options& options, vector<HistoryItem>& history, json_value* story)
 {
 	string id;
 	string title;
@@ -208,6 +338,11 @@ void handleStory(const Options& options, vector<HistoryItem>& history, json_valu
 
 	if (isImageUrl(url))
 	{
+		//saveImage(subreddit, options, url);	
+	}
+	else if (isImgurUrl(url))
+	{
+		saveImgurUrl(subreddit, options, url);
 	}
 
 	if (!inHistory)
@@ -259,7 +394,7 @@ bool readSubreddits(const Options& options)
 									for (json_value* it = rec->first_child; it; it = it->next_sibling)
 									{
 										if (!strcmp(it->name, "data"))
-											handleStory(options, history, it);
+											handleStory(options.subreddits[i], options, history, it);
 									}						
 								}
 							}
