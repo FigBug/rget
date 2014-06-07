@@ -375,7 +375,7 @@ void handleStory(const string& subreddit, const Options& options, vector<History
 
 	if (isImageUrl(url))
 	{
-		//saveImage(subreddit, options, url);	
+		saveImage(subreddit, options, url);	
 	}
 	else if (isImgurUrl(url))
 	{
