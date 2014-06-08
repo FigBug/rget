@@ -242,6 +242,12 @@ bool saveImage(const string& subreddit, const Options& options, string url, stri
 		fwrite(imgData.data(), imgData.size(), 1, fp);
 		fclose(fp);
 	}
+    
+    if (options.verbose)
+    {
+        printf("%s: %s\n", subreddit.c_str(), strrchr(url.c_str(), '/') + 1);
+    }
+    
 	return true;
 }
 
@@ -450,13 +456,14 @@ bool readSubreddits(const Options& options)
 
 void printUsage()
 {
-	printf("r: Copyright 2012 Roland Rabien\n");
+	printf("r: Copyright 2014 Roland Rabien\n");
 	printf("  usage: rget [-cashv] [-n max] [-o folder] subreddit\n");
 	printf("  -c Clear history\n");
 	printf("  -a Fetch all (including previously opened)\n");
 	printf("  -n Maximum number of links to fetch (default 30)\n");
 	printf("  -o Output Folder\n");
 	printf("  -s Create folder for subreddit\n");
+    printf("  -l List file names\n");
 	printf("  -h Display help\n");
 	printf("  -v Display version\n");
 }
@@ -468,7 +475,7 @@ Options parseOptions(int argc, char* argv[])
 	ultraopterr = 0;
 
 	int c;	
-	while ((c = ultragetopt (argc, argv, "can:o:shv")) != -1)
+	while ((c = ultragetopt (argc, argv, "can:o:shvl")) != -1)
 	{
 		switch (c)
 		{
@@ -479,6 +486,7 @@ Options parseOptions(int argc, char* argv[])
 			case 's': options.createSubdir      = true; break;
 			case 'h': options.displayHelp		= true; break;
 			case 'v': options.displayVersion	= true; break;
+            case 'l': options.verbose           = true; break;
 			case '?':
 				if (ultraoptopt == 'c')
 					fprintf (stderr, "Option -%c requires an argument.\n", ultraoptopt);

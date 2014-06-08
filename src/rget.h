@@ -8,7 +8,8 @@ struct Options
 		displayHelp(false),
 		displayVersion(false),
 		numToOpen(30),
-		createSubdir(false)
+		createSubdir(false),
+        verbose(false)
 	{
 	}
 
@@ -19,6 +20,7 @@ struct Options
 	int numToOpen;
 	string output;
 	bool createSubdir;
+    bool verbose;
 	vector<string> subreddits;
 };
 
